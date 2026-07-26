@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
 import { styles } from '../styles';
-import { API_URL } from '../services/socket';
+import { API_URL } from '../../services/socket';
 
 interface ProfileScreenProps {
   name: string;

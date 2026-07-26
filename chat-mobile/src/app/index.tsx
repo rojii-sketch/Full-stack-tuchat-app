@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'; 
 import { Alert, Share } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { socket } from './services/socket';
-import { decodeInvite, encodeInvite } from './utils/helpers';
+import { socket, API_BASE_URL } from './../services/socket';
+import { decodeInvite, encodeInvite } from './../utils/helpers';
 import { AuthScreen } from './screens/AuthScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { InboxScreen } from './screens/InboxScreen';
@@ -98,7 +98,7 @@ export default function App() {
 
   const fetchRooms = async () => {
     try {
-      const res = await fetch('http://localhost:3000/api/rooms');
+      const res = await fetch(`${API_BASE_URL}/api/rooms`);
       const data = await res.json();
       if (res.ok) setAvailableRooms(data);
     } catch (e) {
@@ -209,7 +209,7 @@ export default function App() {
   const handleRegister = async () => { 
     if (!name || !email || !password) return Alert.alert('Error', 'Fill in all fields');
     try {
-      const res = await fetch(`http://localhost:3000/api/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, password }) });
+      const res = await fetch(`${API_BASE_URL}/api/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, password }) });
       const data = await res.json();
       if (res.ok) setAuthMode('otp'); else Alert.alert('Registration Failed', data.error);
     } catch (e) { Alert.alert('Network Error', 'Could not connect.'); }
@@ -218,7 +218,7 @@ export default function App() {
   const handleVerifyOtp = async () => { 
     if (!otpCode || otpCode.length !== 6) return Alert.alert('Error', 'Enter 6-digit code');
     try {
-      const res = await fetch(`http://localhost:3000/api/auth/verify-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, otp: otpCode }) });
+      const res = await fetch(`${API_BASE_URL}/api/auth/verify-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, otp: otpCode }) });
       const data = await res.json();
       if (res.ok) {
         await AsyncStorage.setItem('userToken', data.token); await AsyncStorage.setItem('userName', data.name);
@@ -229,7 +229,7 @@ export default function App() {
 
   const handleResendOtp = async () => { 
     try {
-      const res = await fetch(`http://localhost:3000/api/auth/resend-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+      const res = await fetch(`${API_BASE_URL}/api/auth/resend-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
       if (res.ok) Alert.alert('Sent!', 'New code sent.'); else Alert.alert('Error', (await res.json()).error);
     } catch (e) { Alert.alert('Network Error', 'Could not connect.'); }
   };
@@ -237,7 +237,7 @@ export default function App() {
   const handleLogin = async () => { 
     if (!email || !password) return Alert.alert('Error', 'Fill in all fields');
     try {
-      const res = await fetch(`http://localhost:3000/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+      const res = await fetch(`${API_BASE_URL}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
       const data = await res.json();
       if (res.ok) {
         await AsyncStorage.setItem('userToken', data.token); await AsyncStorage.setItem('userName', data.name);
@@ -296,7 +296,7 @@ export default function App() {
           style: "destructive", 
           onPress: async () => {
             try {
-              const res = await fetch(`http://localhost:3000/api/auth/hide-chat`, {
+              const res = await fetch(`${API_BASE_URL}/api/auth/hide-chat`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, chatName: targetUser })
@@ -377,7 +377,7 @@ export default function App() {
   const handleCreateGroup = async () => {
     if (!groupName.trim()) return Alert.alert('Error', 'Enter a group or channel name');
     try {
-      const res = await fetch('http://localhost:3000/api/rooms/create', {
+      const res = await fetch(`${API_BASE_URL}/api/rooms/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

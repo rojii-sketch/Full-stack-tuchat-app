@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, SafeAreaView, Image } from 'react-native';
 import { styles } from '../styles';
-import { formatTime, isEmojiOnly } from '../utils/helpers';
+import { formatTime, isEmojiOnly } from '../../utils/helpers';
 
 interface ChatScreenProps {
   currentRoom: string | null;
