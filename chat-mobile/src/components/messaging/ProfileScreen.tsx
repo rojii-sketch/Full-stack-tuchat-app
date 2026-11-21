@@ -3,9 +3,9 @@ import Check from 'lucide-react-native/icons/check';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Avatar, IconButton } from '../../components/messaging/controls';
+import { Avatar, IconButton } from './controls';
 import { API_URL } from '../../services/socket';
-import { colors, styles } from '../styles';
+import { colors, styles } from './styles';
 
 interface ProfileScreenProps {
   name: string;

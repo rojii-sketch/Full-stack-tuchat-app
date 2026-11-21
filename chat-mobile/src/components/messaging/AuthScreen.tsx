@@ -7,7 +7,7 @@ import MessageCircle from 'lucide-react-native/icons/message-circle';
 import UserRound from 'lucide-react-native/icons/user-round';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, styles } from '../styles';
+import { colors, styles } from './styles';
 
 interface AuthScreenProps {
   authMode: 'register' | 'login' | 'otp';

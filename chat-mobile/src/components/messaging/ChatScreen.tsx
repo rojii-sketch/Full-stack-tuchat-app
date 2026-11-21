@@ -13,10 +13,23 @@ import X from 'lucide-react-native/icons/x';
 import { useRef, useState } from 'react';
 import { FlatList, Image, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Avatar, IconButton } from '../../components/messaging/controls';
+import { Avatar, IconButton } from './controls';
 import { formatTime, isEmojiOnly } from '../../utils/helpers';
-import type { Message } from '../index';
-import { colors, styles } from '../styles';
+import { colors, styles } from './styles';
+
+export interface Message {
+  id: string;
+  text: string;
+  senderId: string;
+  senderName: string;
+  receiverName?: string;
+  roomName?: string;
+  imageUrl?: string;
+  seen?: boolean;
+  tags?: string[];
+  createdAt?: string;
+}
+
 
 interface ChatScreenProps {
   currentRoom: string | null;

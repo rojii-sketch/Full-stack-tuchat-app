@@ -3,24 +3,11 @@ import { Alert, Platform, Share, type AlertButton } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { socket, API_BASE_URL } from './../services/socket';
 import { decodeInvite, encodeInvite } from './../utils/helpers';
-import { AuthScreen } from './screens/AuthScreen';
-import { ProfileScreen } from './screens/ProfileScreen';
-import { InboxScreen } from './screens/InboxScreen';
-import { ChatScreen } from './screens/ChatScreen';
+import { AuthScreen } from '../components/messaging/AuthScreen';
+import { ProfileScreen } from '../components/messaging/ProfileScreen';
+import { InboxScreen } from '../components/messaging/InboxScreen';
+import { ChatScreen, type Message } from '../components/messaging/ChatScreen';
 import { SettingsScreen } from '../components/messaging/settings-screen';
-
-export interface Message {
-  id: string;
-  text: string;
-  senderId: string;
-  senderName: string;
-  receiverName?: string; 
-  roomName?: string;
-  imageUrl?: string;
-  seen?: boolean;
-  tags?: string[];
-  createdAt?: string; 
-}
 
 interface Typer {
   name: string;

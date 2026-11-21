@@ -4,7 +4,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import { useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, styles } from '../../app/styles';
+import { colors, styles } from './styles';
 
 export function IconButton({ icon: Icon, label, onPress, active = false, color = colors.ink }: {
   icon: LucideIcon;

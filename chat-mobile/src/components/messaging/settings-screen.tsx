@@ -6,7 +6,7 @@ import UserRound from 'lucide-react-native/icons/user-round';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, styles } from '../../app/styles';
+import { colors, styles } from './styles';
 import { Avatar, WorkspaceNav } from './controls';
 
 export function SettingsScreen({ name, email, avatar, status, blockedUsers, onUnblock, onEditProfile, onLogout, onChats }: {

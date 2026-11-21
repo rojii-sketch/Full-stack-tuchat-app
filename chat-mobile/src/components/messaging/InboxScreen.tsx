@@ -13,8 +13,8 @@ import X from 'lucide-react-native/icons/x';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Avatar, IconButton, WorkspaceNav } from '../../components/messaging/controls';
-import { colors, styles } from '../styles';
+import { Avatar, IconButton, WorkspaceNav } from './controls';
+import { colors, styles } from './styles';
 
 interface InboxScreenProps {
   onSettings: () => void;
