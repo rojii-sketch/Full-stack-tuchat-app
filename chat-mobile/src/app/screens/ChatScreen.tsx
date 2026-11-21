@@ -1,7 +1,22 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, SafeAreaView, Image } from 'react-native';
-import { styles } from '../styles';
+import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import Check from 'lucide-react-native/icons/check';
+import CheckCheck from 'lucide-react-native/icons/check-check';
+import Globe2 from 'lucide-react-native/icons/globe-2';
+import ImagePlus from 'lucide-react-native/icons/image-plus';
+import MessageCircle from 'lucide-react-native/icons/message-circle';
+import MoreVertical from 'lucide-react-native/icons/ellipsis-vertical';
+import Send from 'lucide-react-native/icons/send';
+import Smile from 'lucide-react-native/icons/smile';
+import Trash2 from 'lucide-react-native/icons/trash-2';
+import UsersRound from 'lucide-react-native/icons/users-round';
+import X from 'lucide-react-native/icons/x';
+import { useRef, useState } from 'react';
+import { FlatList, Image, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Avatar, IconButton } from '../../components/messaging/controls';
 import { formatTime, isEmojiOnly } from '../../utils/helpers';
+import type { Message } from '../index';
+import { colors, styles } from '../styles';
 
 interface ChatScreenProps {
   currentRoom: string | null;
@@ -10,7 +25,7 @@ interface ChatScreenProps {
   setCurrentRoom: (val: string | null) => void;
   setAuthMode: (mode: 'inbox') => void;
   handleClearChat: () => void;
-  displayedMessages: any[];
+  displayedMessages: Message[];
   name: string;
   selectedMessageId: string | null;
   setSelectedMessageId: (id: string | null) => void;
@@ -21,131 +36,103 @@ interface ChatScreenProps {
   imageUrlInput: string;
   setImageUrlInput: (val: string) => void;
   currentMessage: string;
-  setCurrentMessage: React.Dispatch<React.SetStateAction<string>>;
   handleTextChange: (text: string) => void;
   sendMessage: () => void;
 }
+
+const emojis = ['😀', '😂', '😍', '🔥', '👍', '❤️', '🚀', '🎉', '😎', '🙏', '💯', '✨', '💡', '💻', '☕'];
 
 export function ChatScreen({
   currentRoom, privateChatUser, setPrivateChatUser, setCurrentRoom, setAuthMode,
   handleClearChat, displayedMessages, name, selectedMessageId, setSelectedMessageId,
   handleDeleteSelectedMessage, activeTypers, showImageInput, setShowImageInput,
-  imageUrlInput, setImageUrlInput, currentMessage, setCurrentMessage, handleTextChange, sendMessage
+  imageUrlInput, setImageUrlInput, currentMessage, handleTextChange, sendMessage,
 }: ChatScreenProps) {
-  const flatListRef = useRef<FlatList>(null);
+  const flatListRef = useRef<FlatList<Message>>(null);
   const [isMenuVisible, setIsMenuVisible] = useState(false);
+  const [showEmojis, setShowEmojis] = useState(false);
+  const title = currentRoom || privateChatUser || 'Global Community';
+  const canSend = !!(currentMessage.trim() || imageUrlInput.trim());
+
+  function backToChats() {
+    setSelectedMessageId(null);
+    setPrivateChatUser(null);
+    setCurrentRoom(null);
+    setAuthMode('inbox');
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        
-        {/* --- CHAT HEADER WITH THREE-DOT MENU --- */}
+      <KeyboardAvoidingView style={[styles.frame, styles.container]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => { setPrivateChatUser(null); setCurrentRoom(null); setAuthMode('inbox'); }}>
-            <Text style={styles.backText}>{'< Back'}</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerText}>{currentRoom ? currentRoom : (privateChatUser ? privateChatUser : 'Global Community')}</Text>
-          
-          <TouchableOpacity style={styles.logoutButton} onPress={() => setIsMenuVisible(!isMenuVisible)}>
-            <Text style={[styles.logoutText, { fontSize: 20, fontWeight: 'bold' }]}>⋮</Text>
-          </TouchableOpacity>
+          <IconButton icon={ArrowLeft} label="Back to chats" onPress={backToChats} />
+          <Avatar label={title} icon={currentRoom ? UsersRound : privateChatUser ? undefined : Globe2} />
+          <View style={chat.heading}>
+            <Text accessibilityRole="header" style={chat.title} numberOfLines={1}>{title}</Text>
+            <Text style={chat.detail}>{currentRoom ? 'Room' : privateChatUser ? 'Direct message' : 'Public chat'}</Text>
+          </View>
+          <IconButton icon={MoreVertical} label="Conversation options" active={isMenuVisible} onPress={() => setIsMenuVisible(!isMenuVisible)} />
         </View>
 
-        {/* --- DROPDOWN MENU OVERLAY --- */}
         {isMenuVisible && (
-          <View style={{
-            position: 'absolute',
-            top: 60,
-            right: 15,
-            backgroundColor: '#fff',
-            borderRadius: 8,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.2,
-            shadowRadius: 4,
-            elevation: 5,
-            zIndex: 100,
-            width: 140,
-            paddingVertical: 5
+          <Pressable accessibilityRole="button" style={[styles.card, styles.shadow, chat.menu]} onPress={() => {
+            setIsMenuVisible(false);
+            handleClearChat();
           }}>
-            <TouchableOpacity 
-              onPress={() => { 
-                setIsMenuVisible(false); 
-                handleClearChat(); 
-              }}
-              style={{ paddingVertical: 10, paddingHorizontal: 15 }}
-            >
-              <Text style={{ color: '#FF3B30', fontWeight: '600', fontSize: 14 }}>Clear Chat</Text>
-            </TouchableOpacity>
-          </View>
+            <Trash2 size={17} color={colors.danger} />
+            <Text style={[styles.label, { color: colors.danger }]}>Clear chat</Text>
+          </Pressable>
         )}
-        
+
         <FlatList
           ref={flatListRef}
           data={displayedMessages}
-          keyExtractor={(item) => item.id}
+          keyExtractor={item => item.id}
           contentContainerStyle={styles.chatList}
-          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-          onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
+          ListEmptyComponent={(
+            <View style={chat.empty}>
+              <View style={styles.avatarPlaceholder}><MessageCircle size={23} color={colors.accent} /></View>
+              <Text style={styles.label}>No messages yet</Text>
+            </View>
+          )}
           renderItem={({ item }) => {
-            const isMe = item.senderName === name; 
+            const isMe = item.senderName === name;
             const isSelected = selectedMessageId === item.id;
-            const emojiOnly = isEmojiOnly(item.text);
+            const emojiOnly = !item.imageUrl && isEmojiOnly(item.text);
+            const Receipt = item.seen ? CheckCheck : Check;
 
             return (
-              <View style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', marginVertical: 4 }}>
+              <View style={[chat.message, { alignSelf: isMe ? 'flex-end' : 'flex-start' }]}>
                 {isSelected && (
-                  <View style={{
-                    flexDirection: 'row', backgroundColor: '#333', borderRadius: 8,
-                    paddingHorizontal: 8, paddingVertical: 4, marginBottom: 4,
-                    alignSelf: 'center', alignItems: 'center', elevation: 3
-                  }}>
-                    <TouchableOpacity onPress={() => setSelectedMessageId(null)} style={{ paddingHorizontal: 8, paddingVertical: 2 }}>
-                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>Cancel</Text>
-                    </TouchableOpacity>
-                    <View style={{ width: 1, height: 12, backgroundColor: '#555', marginHorizontal: 4 }} />
-                    <TouchableOpacity onPress={handleDeleteSelectedMessage} style={{ paddingHorizontal: 8, paddingVertical: 2 }}>
-                      <Text style={{ color: '#FF3B30', fontSize: 12, fontWeight: 'bold' }}>Delete</Text>
-                    </TouchableOpacity>
-                    <View style={{ width: 1, height: 12, backgroundColor: '#555', marginHorizontal: 4 }} />
-                    <TouchableOpacity onPress={() => { setSelectedMessageId(null); handleClearChat(); }} style={{ paddingHorizontal: 8, paddingVertical: 2 }}>
-                      <Text style={{ color: '#FF9500', fontSize: 12, fontWeight: 'bold' }}>Clear</Text>
-                    </TouchableOpacity>
+                  <View style={chat.selection}>
+                    <IconButton icon={X} label="Deselect message" onPress={() => setSelectedMessageId(null)} />
+                    <IconButton icon={Trash2} label="Delete selected message" color={colors.danger} onPress={handleDeleteSelectedMessage} />
+                    <Pressable accessibilityRole="button" onPress={() => { setSelectedMessageId(null); handleClearChat(); }}>
+                      <Text style={styles.link}>Clear chat</Text>
+                    </Pressable>
                   </View>
                 )}
-
-                <TouchableOpacity 
-                  activeOpacity={0.9}
+                <Pressable
                   onLongPress={() => setSelectedMessageId(item.id)}
                   style={[
-                    emojiOnly ? { padding: 4 } : [styles.messageBubble, isMe ? styles.myMessage : styles.otherMessage],
-                    isSelected && { borderWidth: 2, borderColor: '#0A84FF' }
+                    styles.messageBubble,
+                    !emojiOnly && (isMe ? styles.myMessage : styles.otherMessage),
+                    isSelected && chat.selected,
                   ]}
                 >
                   {!isMe && !emojiOnly && <Text style={styles.senderNameText}>{item.senderName}</Text>}
-                  
-                  {item.imageUrl ? (
-                    <Image source={{ uri: item.imageUrl }} style={{ width: 200, height: 150, borderRadius: 8, marginBottom: 5 }} resizeMode="cover" />
-                  ) : null}
-
-                  <Text style={emojiOnly ? { fontSize: 36 } : (isMe ? styles.myMessageText : styles.otherMessageText)}>
-                    {item.text}
-                  </Text>
-
+                  {!!item.imageUrl && <Image source={{ uri: item.imageUrl }} style={chat.image} resizeMode="cover" />}
+                  <Text style={emojiOnly ? chat.emoji : styles.messageText}>{item.text}</Text>
                   {!emojiOnly && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 2 }}>
-                      <Text style={[styles.timeText, isMe ? styles.myTimeText : styles.otherTimeText, { marginRight: 4 }]}>
-                        {formatTime(item.createdAt)}
-                      </Text>
-                      {isMe && (
-                        <Text style={{ fontSize: 10, color: item.seen ? '#34C759' : '#8E8E93', fontWeight: 'bold' }}>
-                          {item.seen ? '✓✓' : '✓'}
-                        </Text>
-                      )}
+                    <View style={chat.receipt}>
+                      <Text style={styles.timeText}>{formatTime(item.createdAt)}</Text>
+                      {isMe && <Receipt size={14} color={item.seen ? colors.accent : colors.muted} />}
                     </View>
                   )}
-                </TouchableOpacity>
+                </Pressable>
               </View>
             );
           }}
@@ -153,60 +140,64 @@ export function ChatScreen({
 
         {activeTypers.length > 0 && (
           <View style={styles.typingContainer}>
-            <Text style={styles.typingText}>
-              {activeTypers.join(', ')} {activeTypers.length === 1 ? 'is' : 'are'} typing...
-            </Text>
+            <Text style={styles.typingText}>{activeTypers.join(', ')} {activeTypers.length === 1 ? 'is' : 'are'} typing…</Text>
           </View>
         )}
 
         {showImageInput && (
-          <View style={{ padding: 8, backgroundColor: '#f9f9f9', borderTopWidth: 1, borderColor: '#eee', flexDirection: 'row', alignItems: 'center' }}>
-            <TextInput 
-              style={[styles.textInput, { flex: 1, backgroundColor: '#fff' }]}
-              placeholder="Paste Image URL..."
-              value={imageUrlInput}
-              onChangeText={setImageUrlInput}
-            />
-            <TouchableOpacity onPress={() => setShowImageInput(false)} style={{ marginLeft: 8, padding: 8 }}>
-              <Text style={{ color: '#FF3B30', fontWeight: 'bold' }}>✕</Text>
-            </TouchableOpacity>
+          <View style={styles.inputContainer}>
+            <TextInput accessibilityLabel="Image URL" style={styles.textInput} placeholder="Paste image URL" value={imageUrlInput} onChangeText={setImageUrlInput} keyboardType="url" autoCapitalize="none" />
+            <IconButton icon={X} label="Remove image URL" onPress={() => { setShowImageInput(false); setImageUrlInput(''); }} />
           </View>
         )}
-        
-        <View style={styles.emojiBar}>
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            data={['😀', '😂', '😍', '🔥', '👍', '❤️', '🚀', '🎉', '😎', '🙏', '💯', '✨', '💡', '💻', '☕']}
-            keyExtractor={(item, index) => index.toString()}
-            renderItem={({ item }) => (
-              <TouchableOpacity 
-                style={styles.emojiButton} 
-                onPress={() => setCurrentMessage(prev => prev + item)}
-              >
-                <Text style={styles.emojiText}>{item}</Text>
-              </TouchableOpacity>
-            )}
-          />
-        </View>
+
+        {showEmojis && (
+          <View style={styles.emojiBar}>
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              data={emojis}
+              keyExtractor={item => item}
+              renderItem={({ item }) => (
+                <Pressable accessibilityRole="button" style={styles.emojiButton} onPress={() => handleTextChange(currentMessage + item)}>
+                  <Text style={styles.emojiText}>{item}</Text>
+                </Pressable>
+              )}
+            />
+          </View>
+        )}
 
         <View style={styles.inputContainer}>
-          <TouchableOpacity onPress={() => setShowImageInput(!showImageInput)} style={{ paddingHorizontal: 10, justifyContent: 'center' }}>
-            <Text style={{ fontSize: 20 }}>📷</Text>
-          </TouchableOpacity>
-          <TextInput 
-            style={styles.textInput} 
-            placeholder="Type a message..." 
-            value={currentMessage} 
-            onChangeText={handleTextChange} 
-            onSubmitEditing={sendMessage} 
+          <IconButton icon={Smile} label="Toggle emoji picker" active={showEmojis} onPress={() => setShowEmojis(!showEmojis)} />
+          <IconButton icon={ImagePlus} label="Attach image by URL" active={showImageInput} onPress={() => setShowImageInput(!showImageInput)} />
+          <TextInput
+            accessibilityLabel="Message"
+            style={styles.textInput}
+            placeholder="Message"
+            value={currentMessage}
+            onChangeText={handleTextChange}
+            onSubmitEditing={sendMessage}
           />
-          <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
-            <Text style={styles.buttonText}>Send</Text>
-          </TouchableOpacity>
+          <Pressable accessibilityRole="button" accessibilityLabel="Send message" disabled={!canSend} style={[styles.sendButton, !canSend && { opacity: 0.5 }]} onPress={sendMessage}>
+            <Send size={18} color={colors.paper} />
+          </Pressable>
         </View>
-
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
+
+const chat = StyleSheet.create({
+  heading: { flex: 1, minWidth: 0, gap: 2 },
+  title: { color: colors.ink, fontSize: 17, fontWeight: '800' },
+  detail: { color: colors.muted, fontSize: 12 },
+  menu: { position: 'absolute', right: 10, top: 61, zIndex: 2, flexDirection: 'row', alignItems: 'center' },
+  empty: { alignSelf: 'center', alignItems: 'center', gap: 8, padding: 14 },
+  message: { maxWidth: '82%', marginVertical: 3 },
+  selection: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 },
+  selected: { borderColor: colors.accent, borderWidth: 1 },
+  image: { width: 192, maxWidth: '100%', height: 144, borderRadius: 10, marginBottom: 5 },
+  emoji: { fontSize: 34 },
+  receipt: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: 3 },
+});

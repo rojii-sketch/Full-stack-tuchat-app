@@ -1,7 +1,7 @@
 import { io } from 'socket.io-client';
 
-export const SOCKET_URL = 'https://tuchat-backend.onrender.com';
-export const API_BASE_URL = 'https://tuchat-backend.onrender.com';
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/+$/, '') || 'https://tuchat-backend.onrender.com';
+export const SOCKET_URL = API_BASE_URL;
 export const API_URL = `${API_BASE_URL}/api/auth`;
 
 export const socket = io(SOCKET_URL, { 

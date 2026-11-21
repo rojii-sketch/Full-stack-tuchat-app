@@ -1,7 +1,11 @@
-import React from 'react';
-import { View, Text, TextInput, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
-import { styles } from '../styles';
+import ArrowLeft from 'lucide-react-native/icons/arrow-left';
+import Check from 'lucide-react-native/icons/check';
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Avatar, IconButton } from '../../components/messaging/controls';
 import { API_URL } from '../../services/socket';
+import { colors, styles } from '../styles';
 
 interface ProfileScreenProps {
   name: string;
@@ -12,59 +16,78 @@ interface ProfileScreenProps {
   setStatus: (val: string) => void;
   about: string;
   setAbout: (val: string) => void;
-  setAuthMode: (mode: 'inbox') => void;
+  setAuthMode: (mode: 'settings') => void;
 }
 
 export function ProfileScreen({
-  name, email, avatar, setAvatar, status, setStatus, about, setAbout, setAuthMode
+  name, email, avatar, setAvatar, status, setStatus, about, setAbout, setAuthMode,
 }: ProfileScreenProps) {
+  const [draftAvatar, setDraftAvatar] = useState(avatar);
+  const [draftStatus, setDraftStatus] = useState(status);
+  const [draftAbout, setDraftAbout] = useState(about);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
   const handleSaveProfile = async () => {
+    setSaving(true);
+    setError('');
     try {
-      const res = await fetch(`${API_URL.replace('/auth', '')}/auth/profile`, {
+      const res = await fetch(`${API_URL}/profile`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, avatar, status, about })
+        body: JSON.stringify({ email, avatar: draftAvatar, status: draftStatus, about: draftAbout }),
       });
-      if (res.ok) {
-        Alert.alert('Success', 'Profile updated successfully!');
-        setAuthMode('inbox');
-      } else {
-        Alert.alert('Error', 'Failed to update profile.');
+      if (!res.ok) {
+        setError('Could not save your profile.');
+        return;
       }
-    } catch (e) {
-      Alert.alert('Network Error', 'Could not save profile.');
+      setAvatar(draftAvatar);
+      setStatus(draftStatus);
+      setAbout(draftAbout);
+      setAuthMode('settings');
+    } catch {
+      setError('Could not connect. Try again.');
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
+      <View style={[styles.frame, styles.container]}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => setAuthMode('inbox')}>
-            <Text style={styles.backText}>{'< Back'}</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerText}>Edit Profile</Text>
+          <IconButton icon={ArrowLeft} label="Back to settings" onPress={() => setAuthMode('settings')} />
+          <Text accessibilityRole="header" style={styles.headerText}>Edit profile</Text>
         </View>
-
-        <View style={styles.authContainer}>
-          <View style={[styles.avatarPlaceholder, { width: 80, height: 80, borderRadius: 40, alignSelf: 'center', marginBottom: 20 }]}>
-            <Text style={[styles.avatarText, { fontSize: 32 }]}>{name.charAt(0).toUpperCase()}</Text>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={profile.content}>
+          <View style={styles.card}>
+            <View style={profile.identity}>
+              <Avatar label={name} uri={draftAvatar} size={62} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>{name}</Text>
+                {!!email && <Text style={styles.subtitle}>{email}</Text>}
+              </View>
+            </View>
+            <Text style={styles.label}>Profile photo URL</Text>
+            <TextInput accessibilityLabel="Profile photo URL" style={styles.input} placeholder="https://example.com/photo.jpg" value={draftAvatar} onChangeText={setDraftAvatar} autoCapitalize="none" keyboardType="url" />
+            <Text style={styles.label}>Status</Text>
+            <TextInput accessibilityLabel="Status" style={styles.input} placeholder="Online, busy, or away" value={draftStatus} onChangeText={setDraftStatus} />
+            <Text style={styles.label}>About</Text>
+            <TextInput accessibilityLabel="About" style={[styles.input, profile.about]} value={draftAbout} onChangeText={setDraftAbout} multiline />
+            {!!error && <Text accessibilityRole="alert" style={{ color: colors.danger }}>{error}</Text>}
+            <Pressable accessibilityRole="button" disabled={saving} style={[styles.primaryButton, saving && { opacity: 0.6 }]} onPress={handleSaveProfile}>
+              <Check size={18} color={colors.paper} />
+              <Text style={styles.buttonText}>{saving ? 'Saving…' : 'Save changes'}</Text>
+            </Pressable>
           </View>
-
-          <Text style={{ fontWeight: '600', marginBottom: 5, color: '#333' }}>Profile Photo URL</Text>
-          <TextInput style={styles.input} placeholder="https://image-url.com/pic.jpg" value={avatar} onChangeText={setAvatar} />
-
-          <Text style={{ fontWeight: '600', marginBottom: 5, color: '#333' }}>Status (Online, Busy, Away)</Text>
-          <TextInput style={styles.input} placeholder="Online" value={status} onChangeText={setStatus} />
-
-          <Text style={{ fontWeight: '600', marginBottom: 5, color: '#333' }}>About / Bio</Text>
-          <TextInput style={[styles.input, { height: 80, paddingTop: 15 }]} placeholder="Hey there! I am using tuchat." value={about} onChangeText={setAbout} multiline />
-
-          <TouchableOpacity style={styles.primaryButton} onPress={handleSaveProfile}>
-            <Text style={styles.buttonText}>Save Changes</Text>
-          </TouchableOpacity>
-        </View>
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
 }
+
+const profile = StyleSheet.create({
+  content: { width: '100%', maxWidth: 620, alignSelf: 'center', padding: 18 },
+  identity: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
+  about: { minHeight: 86, paddingTop: 12, textAlignVertical: 'top' },
+});

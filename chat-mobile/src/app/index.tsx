@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'; 
-import { Alert, Share } from 'react-native';
+import { Alert, Platform, Share, type AlertButton } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { socket, API_BASE_URL } from './../services/socket';
 import { decodeInvite, encodeInvite } from './../utils/helpers';
@@ -7,8 +7,9 @@ import { AuthScreen } from './screens/AuthScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { InboxScreen } from './screens/InboxScreen';
 import { ChatScreen } from './screens/ChatScreen';
+import { SettingsScreen } from '../components/messaging/settings-screen';
 
-interface Message {
+export interface Message {
   id: string;
   text: string;
   senderId: string;
@@ -27,8 +28,16 @@ interface Typer {
   roomName?: string | null;
 }
 
+function confirmAction(title: string, message: string, buttons: [AlertButton, AlertButton]) {
+  if (Platform.OS === 'web') {
+    if (window.confirm(`${title}\n\n${message}`)) buttons[1].onPress?.();
+    return;
+  }
+  Alert.alert(title, message, buttons);
+}
+
 export default function App() {
-  const [authMode, setAuthMode] = useState<'register' | 'login' | 'otp' | 'inbox' | 'chat' | 'profile'>('register');
+  const [authMode, setAuthMode] = useState<'register' | 'login' | 'otp' | 'inbox' | 'chat' | 'profile' | 'settings'>('register');
 
   const [avatar, setAvatar] = useState('');
   const [status, setStatus] = useState('Online');
@@ -39,6 +48,7 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [authFeedback, setAuthFeedback] = useState<{ text: string; success?: boolean } | null>(null);
 
   const [currentMessage, setCurrentMessage] = useState('');
   const [imageUrlInput, setImageUrlInput] = useState('');
@@ -81,6 +91,7 @@ export default function App() {
         const storedName = await AsyncStorage.getItem('userName');
         if (storedToken && storedName) {
           setName(storedName);
+          setEmail((await AsyncStorage.getItem('userEmail')) || '');
           socket.auth = { token: storedToken };
           socket.connect();
           setAuthMode('inbox');
@@ -206,53 +217,96 @@ export default function App() {
     };
   }, [blockedUsers]);
 
-  const handleRegister = async () => { 
-    if (!name || !email || !password) return Alert.alert('Error', 'Fill in all fields');
+  const startSession = async (token: string, userName: string) => {
+    await AsyncStorage.multiSet([['userToken', token], ['userName', userName], ['userEmail', email]]);
+    setName(userName);
+    setPassword('');
+    setOtpCode('');
+    socket.auth = { token };
+    socket.connect();
+    setAuthMode('inbox');
+  };
+
+  const handleRegister = async () => {
+    if (!name || !email || !password) return setAuthFeedback({ text: 'Fill in all fields.' });
+    setAuthFeedback(null);
     try {
       const res = await fetch(`${API_BASE_URL}/api/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, password }) });
       const data = await res.json();
-      if (res.ok) setAuthMode('otp'); else Alert.alert('Registration Failed', data.error);
-    } catch (e) { Alert.alert('Network Error', 'Could not connect.'); }
+      if (res.ok) setAuthMode('otp');
+      else setAuthFeedback({ text: data.error || 'Could not create your account.' });
+    } catch {
+      setAuthFeedback({ text: 'Could not connect. Try again.' });
+    }
   };
 
-  const handleVerifyOtp = async () => { 
-    if (!otpCode || otpCode.length !== 6) return Alert.alert('Error', 'Enter 6-digit code');
+  const handleVerifyOtp = async () => {
+    if (otpCode.length !== 6) return setAuthFeedback({ text: 'Enter the six-digit code.' });
+    setAuthFeedback(null);
     try {
       const res = await fetch(`${API_BASE_URL}/api/auth/verify-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, otp: otpCode }) });
       const data = await res.json();
-      if (res.ok) {
-        await AsyncStorage.setItem('userToken', data.token); await AsyncStorage.setItem('userName', data.name);
-        setName(data.name); socket.auth = { token: data.token }; socket.connect(); setAuthMode('inbox'); 
-      } else Alert.alert('Verification Failed', data.error);
-    } catch (e) { Alert.alert('Network Error', 'Could not connect.'); }
+      if (res.ok) await startSession(data.token, data.name);
+      else setAuthFeedback({ text: data.error || 'Could not verify your email.' });
+    } catch {
+      setAuthFeedback({ text: 'Could not connect. Try again.' });
+    }
   };
 
-  const handleResendOtp = async () => { 
+  const handleResendOtp = async () => {
+    setAuthFeedback(null);
     try {
       const res = await fetch(`${API_BASE_URL}/api/auth/resend-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
-      if (res.ok) Alert.alert('Sent!', 'New code sent.'); else Alert.alert('Error', (await res.json()).error);
-    } catch (e) { Alert.alert('Network Error', 'Could not connect.'); }
+      if (res.ok) setAuthFeedback({ text: 'A new code was sent.', success: true });
+      else setAuthFeedback({ text: (await res.json()).error || 'Could not resend your code.' });
+    } catch {
+      setAuthFeedback({ text: 'Could not connect. Try again.' });
+    }
   };
 
-  const handleLogin = async () => { 
-    if (!email || !password) return Alert.alert('Error', 'Fill in all fields');
+  const handleLogin = async () => {
+    if (!email || !password) return setAuthFeedback({ text: 'Enter your email and password.' });
+    setAuthFeedback(null);
     try {
       const res = await fetch(`${API_BASE_URL}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
       const data = await res.json();
-      if (res.ok) {
-        await AsyncStorage.setItem('userToken', data.token); await AsyncStorage.setItem('userName', data.name);
-        setName(data.name); socket.auth = { token: data.token }; socket.connect(); setAuthMode('inbox');
-      } else {
-        if (res.status === 403) { await handleResendOtp(); setAuthMode('otp'); } 
-        else { Alert.alert('Login Failed', data.error); }
-      }
-    } catch (e) { Alert.alert('Network Error', 'Could not connect.'); }
+      if (res.ok) await startSession(data.token, data.name);
+      else if (res.status === 403) {
+        setAuthMode('otp');
+        await handleResendOtp();
+      } else setAuthFeedback({ text: data.error || 'Could not log in.' });
+    } catch {
+      setAuthFeedback({ text: 'Could not connect. Try again.' });
+    }
   };
 
   const handleLogout = async () => {
-    await AsyncStorage.removeItem('userToken'); await AsyncStorage.removeItem('userName');
-    setEmail(''); setPassword(''); setOtpCode(''); setShowPassword(false); setTypingUsers([]); setOnlineUsers([]); setPrivateChatUser(null); setCurrentRoom(null); setUnreadCounts({});
-    socket.disconnect(); setAuthMode('login');
+    await AsyncStorage.multiRemove(['userToken', 'userName', 'userEmail']);
+    socket.disconnect();
+    setName('');
+    setEmail('');
+    setPassword('');
+    setOtpCode('');
+    setShowPassword(false);
+    setAuthFeedback(null);
+    setTypingUsers([]);
+    setOnlineUsers([]);
+    setPrivateChatUser(null);
+    setCurrentRoom(null);
+    setUnreadCounts({});
+    setMessages([]);
+    setBlockedUsers([]);
+    setHiddenChats([]);
+    setAvatar('');
+    setStatus('Online');
+    setAbout('Hey there! I am using tuchat.');
+    setCurrentMessage('');
+    setShowImageInput(false);
+    setImageUrlInput('');
+    setSelectedMessageId(null);
+    setInviteLink('');
+    setNewChatUsername('');
+    setAuthMode('login');
   };
 
   const generateInviteLink = async () => {
@@ -286,7 +340,7 @@ export default function App() {
   };
 
   const deleteChatFromView = async (targetUser: string) => {
-    Alert.alert(
+    confirmAction(
       "Delete Chat",
       `Remove ${targetUser} from your active chats?`,
       [
@@ -326,7 +380,7 @@ export default function App() {
       setBlockedUsers(prev => prev.filter(u => u !== username));
       Alert.alert('Unblocked', `${username} has been unblocked.`);
     } else {
-      Alert.alert('Block User', `Are you sure you want to block ${username}?`, [
+      confirmAction('Block User', `Are you sure you want to block ${username}?`, [
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Block', 
@@ -355,7 +409,7 @@ export default function App() {
 
   const handleClearChat = () => {
     const targetName = currentRoom || privateChatUser || 'Global Community';
-    Alert.alert(
+    confirmAction(
       "Clear Chat",
       `Are you sure you want to delete all messages in ${targetName}?`,
       [
@@ -463,7 +517,18 @@ export default function App() {
         password={password} setPassword={setPassword} otpCode={otpCode} setOtpCode={setOtpCode}
         showPassword={showPassword} setShowPassword={setShowPassword} handleRegister={handleRegister}
         handleLogin={handleLogin} handleVerifyOtp={handleVerifyOtp} handleResendOtp={handleResendOtp}
-        setAuthMode={setAuthMode}
+        feedback={authFeedback}
+        setAuthMode={(mode) => { setAuthFeedback(null); setAuthMode(mode); }}
+      />
+    );
+  }
+
+  if (authMode === 'settings') {
+    return (
+      <SettingsScreen
+        name={name} email={email} avatar={avatar} status={status} blockedUsers={blockedUsers}
+        onUnblock={toggleBlockUser} onEditProfile={() => setAuthMode('profile')}
+        onLogout={handleLogout} onChats={() => setAuthMode('inbox')}
       />
     );
   }
@@ -480,7 +545,7 @@ export default function App() {
   if (authMode === 'inbox') {
     return (
       <InboxScreen 
-        handleLogout={handleLogout} setAuthMode={setAuthMode} generateInviteLink={generateInviteLink}
+        onSettings={() => setAuthMode('settings')} generateInviteLink={generateInviteLink}
         isGroupModalVisible={isGroupModalVisible} setIsGroupModalVisible={setIsGroupModalVisible}
         groupName={groupName} setGroupName={setGroupName} groupType={groupType} setGroupType={setGroupType}
         groupDescription={groupDescription} setGroupDescription={setGroupDescription} groupTags={groupTags}
@@ -501,7 +566,7 @@ export default function App() {
       setSelectedMessageId={setSelectedMessageId} handleDeleteSelectedMessage={handleDeleteSelectedMessage}
       activeTypers={activeTypers} showImageInput={showImageInput} setShowImageInput={setShowImageInput}
       imageUrlInput={imageUrlInput} setImageUrlInput={setImageUrlInput} currentMessage={currentMessage}
-      setCurrentMessage={setCurrentMessage} handleTextChange={handleTextChange} sendMessage={sendMessage}
+      handleTextChange={handleTextChange} sendMessage={sendMessage}
     />
   );
 }
